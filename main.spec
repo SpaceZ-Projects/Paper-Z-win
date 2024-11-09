@@ -13,6 +13,8 @@ a = Analysis(
     hiddenimports=[
         'pythonnet',
         'hdwallet',
+        'qrcode',
+        'PIL',
     ],
     hookspath=[],
     hooksconfig={},
