@@ -3,8 +3,7 @@ from formz import App, Os
 import qrcode
 from hdwallet import HDWallet
 from hdwallet.utils import generate_entropy
-from hdwallet.symbols import BTCZ
-from typing import Optional
+from mnemonic import Mnemonic
 
 app_path = str(App().app_path)
 qr_cache = Os.Path.Combine(app_path, 'qr_images')
@@ -28,6 +27,25 @@ words_selection_items = [
     "21",
     "24"
 ]
+
+language_map = {
+    "English": "english",
+    "French": "french",
+    "Italian": "italian",
+    "Japanese": "japanese",
+    "Korean": "korean",
+    "Spanish": "spanish",
+    "Chinese Simplified": "chinese_simplified",
+    "Chinese Traditional": "chinese_traditional"
+}
+
+word_strength_map = {
+    "12": 128,
+    "15": 160,
+    "18": 192,
+    "21": 224,
+    "24": 256
+}
 
 
 def qr_generate(address):
@@ -54,25 +72,7 @@ def qr_generate(address):
 
 
 def generate_taddress(words, language):
-    word_strength_map = {
-        "12": 128,
-        "15": 160,
-        "18": 192,
-        "21": 224,
-        "24": 256
-    }
     STRENGTH = word_strength_map.get(words)
-
-    language_map = {
-        "English": "english",
-        "French": "french",
-        "Italian": "italian",
-        "Japanese": "japanese",
-        "Korean": "korean",
-        "Spanish": "spanish",
-        "Chinese Simplified": "chinese_simplified",
-        "Chinese Traditional": "chinese_traditional"
-    }
     LANGUAGE = language_map.get(language)
 
     ENTROPY: str = generate_entropy(strength=STRENGTH)
@@ -80,6 +80,25 @@ def generate_taddress(words, language):
     hdwallet = HDWallet("BTCZ", use_default_path=False)
     hdwallet.from_entropy(entropy=ENTROPY, language=LANGUAGE)
 
+    hdwallet.from_index(44, hardened=True)
+    hdwallet.from_index(177, hardened=True)
+    hdwallet.from_index(0, hardened=True)
+    hdwallet.from_index(0)
+    hdwallet.from_index(0)
+
+    return hdwallet
+
+
+
+def extract_passphrase(language, passphrase):
+    LANGUAGE = language_map.get(language)
+
+    mnemo = Mnemonic(LANGUAGE)
+    if not mnemo.check(passphrase):
+        raise ValueError("Invalid mnemonic words.")
+    
+    hdwallet = HDWallet(symbol="BTCZ")
+    hdwallet.from_mnemonic(mnemonic=passphrase, language=LANGUAGE)
     hdwallet.from_index(44, hardened=True)
     hdwallet.from_index(177, hardened=True)
     hdwallet.from_index(0, hardened=True)

@@ -18,6 +18,7 @@ class TextInput(Forms.TextBox):
         text_size: Optional[int] = 12,
         multiline: bool = False,
         read_only: bool = False,
+        on_change: Optional[Callable[[str], None]] = None
     ):
         super().__init__()
 
@@ -32,6 +33,7 @@ class TextInput(Forms.TextBox):
         self._text_size = text_size
         self._multiline = multiline
         self._read_only = read_only
+        self._on_change_handler = on_change
 
         self._font_object = Drawing.Font(self._font, self._text_size, self._style)
 
@@ -46,6 +48,9 @@ class TextInput(Forms.TextBox):
         self.ReadOnly = self._read_only
 
         self.Size = Drawing.Size(self._size[0], self._size[1])
+
+        if self._on_change_handler:
+            self.TextChanged += self._on_text_changed
 
 
 
@@ -176,3 +181,7 @@ class TextInput(Forms.TextBox):
     def _update_font(self):
         self._font_object = Drawing.Font(self._font, self._text_size, self._style)
         self.Font = self._font_object
+
+    def _on_text_changed(self, sender, event):
+        if self._on_change_handler:
+            self._on_change_handler(self.Text)

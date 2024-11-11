@@ -1,87 +1,16 @@
 
-import clr
+from .app import Forms, Drawing, Sys
 
-clr.AddReference('System.Windows.Forms')
-clr.AddReference('System.Drawing')
-
-import System.IO as Os
-import System as Sys
-import System.Drawing as Drawing
-import System.Windows.Forms as Forms
-
-from typing import Optional, Type, Tuple
-from pathlib import Path
+from typing import Callable, Optional, Tuple, Type
 from .style import Color
+from .app import App
 
 
-class App:
-    _icon = None
-    _app_path = None
-    _app_data = None
-
-    @classmethod
-    def _initialize_app_path(cls):
-        if cls._app_path is None:
-            try:
-                script_path = Os.Path.GetDirectoryName(__file__)
-                cls._app_path = Os.Path.GetDirectoryName(script_path)
-            except Exception as e:
-                print(f"Error initializing app path: {e}")
-
-
-    @classmethod
-    def set_icon(cls, icon_path: Optional[Path]):
-        if icon_path:
-            try:
-                cls._icon = Drawing.Icon(str(icon_path))
-            except Exception as e:
-                print(f"Error setting icon: {e}")
-        else:
-            cls._icon = None
-
-    @classmethod
-    def get_icon(cls) -> Optional[Drawing.Icon]:
-        return cls._icon
+class Window(Forms.Form):
     
-
-    @property
-    def app_path(cls) -> Optional[str]:
-        if cls._app_path is None:
-            cls._initialize_app_path()
-        return cls._app_path
-    
-    @property
-    def app_data(cls) -> Path:
-        if cls._app_data is None:
-            cls._app_data = Path.home() / 'AppData' / 'Local' / 'BTCZCommunity' / 'PaperZ'
-            if not Os.Directory.Exists(str(cls._app_data)):
-                Os.Directory.CreateDirectory(str(cls._app_data))
-        return cls._app_data
-
-    @classmethod
-    def __getattr__(cls, item):
-        if item == 'app_path':
-            if cls._app_path is None:
-                cls._initialize_app_path()
-            return cls._app_path
-        raise AttributeError(f"'{cls.__name__}' object has no attribute '{item}'")
-
-
-
-class MainWindow(Forms.Form):
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if cls._instance:
-            print("Warning: An instance of MainWindow already exists")
-            return cls._instance
-        cls._instance = super(MainWindow, cls).__new__(cls)
-        return cls._instance
-    
-
     def __init__(
         self,
-        title: str = "Paper-Z",
+        title: str = "SpaceZ App",
         size: Tuple[int, int] = (800, 600),
         content: Optional[Type] = None,
         location: Tuple[int, int] = (100, 100),
@@ -92,11 +21,11 @@ class MainWindow(Forms.Form):
         maxmizable: bool = True,
         closable: bool = True,
         borderless: bool = True,
-        icon: Optional[Path] = None,
+        on_close: Optional[Callable[[Type], bool]] = None,
+        on_minimize: Optional[Callable[[Type], None]] = None,
+        draggable: bool = False
     ):
-        if hasattr(self, '_initialized') and self._initialized:
-            return
-    
+       
         super().__init__()
         self._title = title
         self._size = Drawing.Size(size[0], size[1])
@@ -109,29 +38,30 @@ class MainWindow(Forms.Form):
         self._maxmizable = maxmizable
         self._closable = closable
         self._borderless = borderless
-        self._icon = icon
 
-        self.SetStyle(
-            Forms.ControlStyles.AllPaintingInWmPaint | 
-            Forms.ControlStyles.UserPaint | 
-            Forms.ControlStyles.DoubleBuffer, True
-        )
+        self._on_close = on_close
+        self._on_minimize = on_minimize
+        self._draggable = draggable
+
+        self._dragging = False
+        self._drag_start = Drawing.Point(0, 0)
 
         self.Text = self._title
         self.Size = self._size
 
-        if self._icon:
-            App.set_icon(self._icon)
-            self.Icon = App.get_icon()
+        app_icon = App.get_icon()
+        if app_icon:
+            self.Icon = app_icon
 
         if background_color:
             self.BackColor = self._background_color
 
         self.MinimizeBox = self._minimizable
         self.MaximizeBox = self._maxmizable
+        self.ControlBox = self._closable
 
         if content:
-            self.Controls.Add(self._content)
+            self.Controls.Add(self._content_panel)
 
         if center_screen:
             self.StartPosition = Forms.FormStartPosition.CenterScreen
@@ -144,7 +74,11 @@ class MainWindow(Forms.Form):
         elif not self._resizable:
             self.FormBorderStyle = Forms.FormBorderStyle.FixedDialog
 
-        self._initialized = True
+        if draggable:
+            self._update_draggable()
+
+        self.FormClosing += self._handle_form_closing
+        self.Resize += self._handle_minimize_window
 
     
     @property
@@ -159,10 +93,10 @@ class MainWindow(Forms.Form):
 
 
     @property
-    def size(self) -> Tuple[int, int]:
+    def size(self):
         return (self.Size.Width, self.Size.Height)
     
-    
+
     @size.setter
     def size(self, new_size: Tuple[int, int]):
         self._size = Drawing.Size(new_size[0], new_size[1])
@@ -186,12 +120,10 @@ class MainWindow(Forms.Form):
     @property
     def location(self) -> Tuple[int, int]:
         return (self.Location.X, self.Location.Y)
-    
 
     @location.setter
     def location(self, new_location: Tuple[int, int]):
         self._set_location(new_location)
-
 
     def _set_location(self, location: Tuple[int, int]):
         self._location = location
@@ -200,27 +132,12 @@ class MainWindow(Forms.Form):
 
 
     @property
-    def center_screen(self) -> bool:
-        return self.StartPosition == Forms.FormStartPosition.CenterScreen
-    
-
-
-    @center_screen.setter
-    def center_screen(self, value: bool):
-        if value:
-            self.StartPosition = Forms.FormStartPosition.CenterScreen
-        else:
-            self.StartPosition = Forms.FormStartPosition.Manual
-            self.Location = Drawing.Point(self._location[0], self._location[1])
-
-
-    @property
     def background_color(self) -> Optional[Color]:
         return self._background_color
-    
 
     @background_color.setter
     def background_color(self, color: Optional[Color]):
+        
         self._background_color = color
         if color is not None:
             self.BackColor = color
@@ -230,10 +147,12 @@ class MainWindow(Forms.Form):
 
     @property
     def resizable(self):
+        
         return self.FormBorderStyle == Forms.FormBorderStyle.Sizable
 
     @resizable.setter
     def resizable(self, value: bool):
+        
         if value:
             self.FormBorderStyle = Forms.FormBorderStyle.Sizable
         else:
@@ -242,22 +161,50 @@ class MainWindow(Forms.Form):
 
 
     @property
+    def minimizable(self) -> bool:
+        
+        return self.MinimizeBox
+
+    @minimizable.setter
+    def minimizable(self, value: bool):
+        
+        self.MinimizeBox = value
+        self._minimizable = value
+
+
+    @property
     def maxmizable(self) -> bool:
+        
         return self.MaximizeBox
 
     @maxmizable.setter
     def maxmizable(self, value: bool):
+        
         self.MaximizeBox = value
         self._maxmizable = value
+
+
+    @property
+    def closable(self) -> bool:
+        
+        return self.ControlBox
+
+    @closable.setter
+    def closable(self, value: bool):
+        
+        self.ControlBox = value
+        self._closable = value
 
 
     
     @property
     def borderless(self) -> bool:
+        
         return self._borderless
 
     @borderless.setter
     def borderless(self, value: bool):
+        
         if value:
             self.FormBorderStyle = Forms.FormBorderStyle(1)
             self._borderless = True
@@ -266,20 +213,78 @@ class MainWindow(Forms.Form):
             self._borderless = False
 
 
-
+    
     @property
-    def icon(self) -> Optional[Path]:
-        return self._icon
+    def on_close(self) -> Optional[Callable[[Type], bool]]:
+        
+        return self._on_exit
+
+    @on_close.setter
+    def on_close(self, handler: Optional[Callable[[Type], bool]]):
+        
+        self._on_close = handler
+
+    
+    @property
+    def on_minimize(self) -> Optional[Callable[[Type], None]]:
+        return self._on_minimize
     
 
-
-    @icon.setter
-    def icon(self, value: Optional[Drawing.Icon]):
-        self._icon = value
-        App.set_icon(value)
-        self.Icon = App.get_icon()
+    @on_minimize.setter
+    def on_minimize(self, handler: Optional[Callable[[Type], None]]):
+        self._on_minimize = handler
 
 
-    def run(self):
-        Forms.Application.EnableVisualStyles()
-        Forms.Application.Run(self)
+
+    def _on_mouse_down(self, sender: object, e: Forms.MouseEventArgs):
+        if e.Button == Forms.MouseButtons.Left:
+            self._dragging = True
+            self._drag_start = e.Location
+
+
+
+    def _on_mouse_move(self, sender: object, e: Forms.MouseEventArgs):
+        if self._dragging:
+            self.Location = Drawing.Point(self.Location.X + e.X - self._drag_start.X,
+                                          self.Location.Y + e.Y - self._drag_start.Y)
+            
+            
+
+    def _on_mouse_up(self, sender: object, e: Forms.MouseEventArgs):
+        if e.Button == Forms.MouseButtons.Left:
+            self._dragging = False
+
+
+
+    def _handle_form_closing(self, sender, e: Forms.FormClosingEventArgs):
+        
+        if self._on_close:
+            result = self._on_close()
+            if result is False:
+                e.Cancel = True 
+
+
+    def _handle_minimize_window(self, sender, e: Sys.EventArgs):
+        
+        if self.WindowState == Forms.FormWindowState.Minimized:
+            if callable(self._on_minimize):
+                self._on_minimize()
+
+
+    def activate(self):
+        
+        self.Activate()
+
+
+    def hide(self):
+        
+        self.Hide()
+
+    def show(self):
+        
+        self.ShowDialog()
+
+
+    def close(self):
+        
+        self.Close()

@@ -7,7 +7,7 @@ a = Analysis(
     binaries=[
         ('utils.py', '.'),
         ('formz', 'formz'),
-        ('paperz_logo.ico', '.')
+        ('icons', 'icons')
     ],
     datas=[],
     hiddenimports=[
@@ -44,5 +44,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon="paperz_logo.ico"
+    icon="icons/paperz_logo.ico"
 )
