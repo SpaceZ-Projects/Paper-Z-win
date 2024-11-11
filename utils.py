@@ -59,7 +59,7 @@ def qr_generate(address):
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=5,
+        box_size=12,
         border=1,
     )
     qr.add_data(address)

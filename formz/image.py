@@ -1,5 +1,5 @@
 
-from .app import Forms, Drawing
+from .app import Forms, Drawing, Os
 
 from typing import Optional, Tuple
 from pathlib import Path
@@ -31,11 +31,19 @@ class ImageBox(Forms.PictureBox):
     def _set_image(self, image_path: Path):
         try:
             image = Drawing.Image.FromFile(str(image_path))
-            self.Image = image
-            
-            if self._size is None:
+            if self._size:
+                resized_image = Drawing.Bitmap(self._size[0], self._size[1])
+                graphics = Drawing.Graphics.FromImage(resized_image)
+                graphics.DrawImage(image, 0, 0, self._size[0], self._size[1])
+                self.Image = resized_image
+            else:
+                self.Image = image
+            if not self._size:
                 self._size = (image.Width, image.Height)
                 self.Size = Drawing.Size(*self._size)
+            else:
+                self.Size = Drawing.Size(*self._size)
+
         except Exception as e:
             print(f"Error loading image: {e}")
             self.Image = None
@@ -99,3 +107,53 @@ class ImageBox(Forms.PictureBox):
     def location(self, value: Tuple[int, int]):
         self._location = value
         self.Location = Drawing.Point(*value)
+
+
+
+
+
+
+class ImageEditor:
+    def __init__(self, jpg_path: str = None):
+        self._jpg_path = jpg_path
+        self._base_image = None
+
+        if self._jpg_path and Os.File.Exists(self._jpg_path):
+            self._base_image = Drawing.Bitmap(self._jpg_path)
+        else:
+            raise ValueError(f"Invalid JPG file path: {self._jpg_path}")
+    
+    def add_overlay(self, png_path: str, position=(0, 0)):
+        if not Os.File.Exists(png_path):
+            raise ValueError(f"Invalid PNG file path: {png_path}")
+        
+        overlay_image = Drawing.Bitmap(png_path)
+
+        graphics = Drawing.Graphics.FromImage(self._base_image)
+        graphics.DrawImage(overlay_image, position[0], position[1])
+        graphics.Dispose()
+
+
+
+    def add_text(self, text: str, position=(0, 0), font_size=12, color: Color = None):
+        graphics = Drawing.Graphics.FromImage(self._base_image)
+
+        font = Drawing.Font("Arial", font_size, Drawing.FontStyle.Bold)
+        brush = Drawing.SolidBrush(color)
+        
+        graphics.DrawString(text, font, brush, position[0], position[1])
+        graphics.Dispose()
+
+
+
+    def add_multiple_overlays(self, png_files: list, positions: list):
+        if len(png_files) != len(positions):
+            raise ValueError("The number of PNG files must match the number of positions.")
+        
+        for png_file, position in zip(png_files, positions):
+            self.add_overlay(png_file, position)
+
+
+
+    def save(self, output_path: str):
+        self._base_image.Save(output_path, Drawing.Imaging.ImageFormat.Jpeg)

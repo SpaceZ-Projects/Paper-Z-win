@@ -4,12 +4,13 @@
 a = Analysis(
     ['main.py'],
     pathex=['.'],
-    binaries=[
+    binaries=[],
+    datas=[
         ('utils.py', '.'),
         ('formz', 'formz'),
-        ('icons', 'icons')
+        ('icons', 'icons'),
+        ('template.jpg', '.')
     ],
-    datas=[],
     hiddenimports=[
         'pythonnet',
         'hdwallet',

@@ -3,7 +3,8 @@
 from formz import (
     App, MainWindow, Box, Button, Color, Label,
     ImageBox, FontStyle, Selection, TextInput, Os,
-    Toolbar, Command, Window, AlignForm
+    Toolbar, Command, Window, AlignForm,
+    ImageEditor, SaveFile
 )
 
 from utils import (
@@ -20,7 +21,8 @@ class AddressResult(Box):
         self.background_color = Color.rgb(35,35,35)
 
         self.qr_code = ImageBox(
-            location=(480, 20)
+            location=(480, 20),
+            size=(155, 155)
         )
 
         self.qr_code_box = Box(
@@ -117,8 +119,10 @@ class PaperZ(MainWindow):
         self.print_cmd = Command(
             title="Print paper",
             background_color=Color.rgb(200,200,200),
-            icon="icons/print.png"
+            icon="icons/print.png",
+            action=self.print_address_template
         )
+        self.print_cmd.Enabled = False
         self.file_menu = Command(
             title="File",
             icon="icons/file.png",
@@ -245,6 +249,7 @@ class PaperZ(MainWindow):
         result = generate_taddress(words, language)
         if result:
             self.display_address_result(result)
+        self.print_cmd.Enabled = True
         self.clear_button.Enabled = True
 
 
@@ -275,6 +280,7 @@ class PaperZ(MainWindow):
         self.outputs.public_key_output.value = ""
         self.outputs.private_key_output.value = ""
         self.outputs.passphrase_output.value = ""
+        self.print_cmd.Enabled = False
         self.generate_button.Enabled = True
         self.clear_button.Enabled = False
 
@@ -384,6 +390,7 @@ class PaperZ(MainWindow):
         passphrase = self.passphrase_input.value
         result = extract_passphrase(language, passphrase)
         if result:
+            self.print_cmd.Enabled = True
             self.generate_button.Enabled = False
             self.clear_button.Enabled = True
             address = result.p2pkh_address()
@@ -405,6 +412,46 @@ class PaperZ(MainWindow):
                 self.outputs.insert([self.outputs.qr_code])
             
             self.extract_window.close()
+
+
+    def print_address_template(self, command, event):
+        address = self.outputs.address_output.value
+        private_key = self.outputs.private_key_output.value
+        qr_private = qr_generate(private_key)
+        template_path = Os.Path.Combine(App().app_path, 'template.jpg')
+
+        if Os.File.Exists(template_path):
+            self.image_editor = ImageEditor(template_path)
+            
+            self.image_editor.add_text(
+                text=address,
+                color=Color.BLACK,
+                position=(276, 798),
+                font_size=20
+            )
+            self.image_editor.add_text(
+                text=private_key,
+                color=Color.BLACK,
+                font_size=14.5,
+                position=(2360, 725)
+            )
+            self.image_editor.add_overlay(
+                png_path = self.outputs.qr_code.image_path,
+                position=(360, 422)
+            )
+            self.image_editor.add_overlay(
+                png_path= qr_private,
+                position=(2460, 352)
+            )
+            save_file = SaveFile(
+                title="Save paper waller",
+                file_name=f"paper_{address}",
+                result=self.save_template
+            )
+            save_file.show()
+        
+    def save_template(self, path):
+        self.image_editor.save(path)
 
 
     def is_already_running(self):
