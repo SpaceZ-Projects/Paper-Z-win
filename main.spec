@@ -7,7 +7,9 @@ a = Analysis(
     binaries=[],
     datas=[
         ('utils.py', '.'),
+        ('old_memo.py', '.'),
         ('formz', 'formz'),
+        ('wordlist', 'wordlist'),
         ('icons', 'icons'),
         ('template.jpg', '.')
     ],

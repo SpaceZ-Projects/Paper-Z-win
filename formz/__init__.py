@@ -8,5 +8,5 @@ from .textinput import TextInput
 from .image import ImageBox, ImageEditor
 from .selection import Selection
 from .toolbar import Toolbar, Command
-from .dialog import SaveFile
+from .dialog import SaveFile, Dialog, MessageButtons, MessageIcon
 from .style import Font, FontStyle, Color, AlignForm

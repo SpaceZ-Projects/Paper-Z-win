@@ -4,11 +4,11 @@ from formz import (
     App, MainWindow, Box, Button, Color, Label,
     ImageBox, FontStyle, Selection, TextInput, Os,
     Toolbar, Command, Window, AlignForm,
-    ImageEditor, SaveFile
+    ImageEditor, SaveFile, Dialog, MessageButtons, MessageIcon
 )
 
 from utils import (
-    generate_taddress, qr_generate, extract_passphrase,
+    generate_taddress, qr_generate, extract_passphrase, make_seed,
     language_selection_items, words_selection_items)
 
 
@@ -128,15 +128,27 @@ class PaperZ(MainWindow):
             icon="icons/file.png",
             sub_commands=[self.print_cmd]
         )
+
         self.memo_p2pkh_cmd = Command(
             title="Extract passphrase",
             background_color=Color.rgb(200,200,200),
             icon="icons/convert.png",
             action=self.diplay_extract_window
         )
+
+        self.generate_electrum = Command(
+            title="Generate electrum",
+            background_color=Color.rgb(200,200,200),
+            icon="icons/electrum.png",
+            action=self.generate_electrum_seed
+        )
+
         self.tools_menu = Command(
             title="Tools",
-            sub_commands=[self.memo_p2pkh_cmd],
+            sub_commands=[
+                self.memo_p2pkh_cmd,
+                self.generate_electrum
+            ],
             icon="icons/tools.png"
         )
         self.toolbar.add_command(
@@ -389,7 +401,15 @@ class PaperZ(MainWindow):
         language = self.extract_language.value
         passphrase = self.passphrase_input.value
         result = extract_passphrase(language, passphrase)
-        if result:
+        if not result:
+            Dialog(
+                title="Invalid",
+                message="Invalid mnemonic words.",
+                buttons=MessageButtons.OK,
+                icon=MessageIcon.ERROR
+            )
+            return
+        else:
             self.print_cmd.Enabled = True
             self.generate_button.Enabled = False
             self.clear_button.Enabled = True
@@ -412,6 +432,12 @@ class PaperZ(MainWindow):
                 self.outputs.insert([self.outputs.qr_code])
             
             self.extract_window.close()
+
+
+    def generate_electrum_seed(self, command, event):
+        result = make_seed('standard', num_bits=132)
+        if result:
+            self.outputs.passphrase_output.value = result
 
 
     def print_address_template(self, command, event):
@@ -444,7 +470,7 @@ class PaperZ(MainWindow):
                 position=(2460, 352)
             )
             save_file = SaveFile(
-                title="Save paper waller",
+                title="Save paper wallet",
                 file_name=f"paper_{address}",
                 result=self.save_template
             )
